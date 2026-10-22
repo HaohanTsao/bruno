@@ -38,6 +38,17 @@ const Wrapper = styled.div`
     }
   }
 
+  .spec-param-cell {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .spec-missing-required {
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
   .bulk-edit-bar {
     position: sticky;
     bottom: 0;

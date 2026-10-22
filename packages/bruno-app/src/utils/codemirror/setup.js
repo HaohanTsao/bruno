@@ -69,6 +69,7 @@ require('codemirror-graphql/mode');
 // Bruno-specific utilities
 require('utils/codemirror/brunoVarInfo');
 require('utils/codemirror/spec-field-info');
+require('utils/codemirror/spec-key-hints');
 require('utils/codemirror/javascript-lint');
 require('utils/codemirror/autocomplete');
 require('utils/codemirror/codeMirrorInfoFontSize');

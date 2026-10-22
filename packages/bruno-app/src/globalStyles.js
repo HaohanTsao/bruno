@@ -346,6 +346,33 @@ const GlobalStyle = createGlobalStyle`
     overflow-wrap: anywhere;
   }
 
+  .CodeMirror-hint.spec-key-hint {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    max-width: 560px;
+  }
+
+  .spec-key-hint .spec-key-hint-name {
+    font-family: monospace;
+    white-space: nowrap;
+  }
+
+  .spec-key-hint .spec-key-hint-meta {
+    color: ${(props) => props.theme.colors.text.muted};
+    font-size: ${(props) => props.theme.font.size.xs};
+    white-space: nowrap;
+  }
+
+  .spec-key-hint .spec-key-hint-description {
+    color: ${(props) => props.theme.colors.text.muted};
+    font-size: ${(props) => props.theme.font.size.xs};
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   // Autocomplete hints dropdown container
   .CodeMirror-hints {
     z-index: 50 !important;

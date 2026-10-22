@@ -70,6 +70,7 @@ const buildCodeMirrorOptions = ({
       item: props.item
     } : false,
     specFieldInfo: !degraded,
+    specKeyHints: !degraded,
     keyMap: 'sublime',
     autoCloseBrackets: !degraded,
     matchBrackets: !degraded,
@@ -105,6 +106,7 @@ const applyEditorProfile = (
     item: props.item
   } : false);
   editor.setOption('specFieldInfo', !degraded);
+  editor.setOption('specKeyHints', !degraded);
   editor.setOption('mode', degraded ? null : (props.mode || 'application/ld+json'));
 
   if (degraded) {
@@ -595,6 +597,7 @@ class CodeEditor extends React.Component {
       this._disableEnhancedFeatures();
       this.editor.off('beforeChange', this._onBeforeChange);
       this.editor.setOption('specFieldInfo', false);
+      this.editor.setOption('specKeyHints', false);
       this.editor.off('change', this._onEdit);
 
       // Tear down the debounced fold-persistence listener. Cancel any pending

@@ -1,7 +1,7 @@
-const { findNodeAtOffset, getNodePath } = require('jsonc-parser');
-const { prepareBody } = require('./prepare-body');
+const { findNodeAtOffset, findNodeAtLocation, getLocation, getNodePath, parseTree } = require('jsonc-parser');
+const { prepareBody, neutralize } = require('./prepare-body');
 const { validateValue } = require('./validate');
-const { findFieldSchema } = require('./schema');
+const { findFieldSchema, listProperties, typeLabel } = require('./schema');
 const { urlDiffers } = require('./url-hint');
 
 const unescapePointerSegment = (segment) => segment.replace(/~1/g, '/').replace(/~0/g, '~');
@@ -102,10 +102,42 @@ const describeField = (text, offset, ctx) => {
     from: keyNode.offset,
     to: keyNode.offset + keyNode.length,
     path: formatPath(jsonPath),
-    type: Array.isArray(type) ? type.join('|') : type || 'any',
+    type: typeLabel(type),
     required: field.required,
     description: typeof description === 'string' ? description : ''
   };
 };
 
-module.exports = { lintBody, describeField, urlDiffers };
+/**
+ * Lists the spec fields that can be typed as a property key at `offset`: the properties of the object the
+ * cursor is in, minus the keys that object already has. The body may be half typed. Returns null when
+ * `offset` is not where a key goes, or the spec does not describe that object.
+ */
+const completeKeys = (text, offset, ctx) => {
+  const { neutral } = neutralize(text);
+  const location = getLocation(neutral, offset);
+  if (!location.isAtPropertyKey) {
+    return null;
+  }
+  const objectPath = location.path.slice(0, -1);
+  const items = listProperties(ctx.schema, objectPath);
+  if (!items) {
+    return null;
+  }
+
+  // The key being typed is not taken yet; every other key of the object is.
+  const tree = parseTree(neutral, [], { allowTrailingComma: true });
+  const objectNode = tree ? findNodeAtLocation(tree, objectPath) : undefined;
+  const taken = new Set();
+  if (objectNode && objectNode.type === 'object') {
+    for (const property of objectNode.children || []) {
+      const keyNode = property.children && property.children[0];
+      if (keyNode && !(offset >= keyNode.offset && offset <= keyNode.offset + keyNode.length)) {
+        taken.add(keyNode.value);
+      }
+    }
+  }
+  return items.filter((item) => !taken.has(item.name));
+};
+
+module.exports = { lintBody, describeField, completeKeys, urlDiffers };

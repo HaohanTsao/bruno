@@ -13,7 +13,7 @@ import { usePersistedState } from 'hooks/usePersistedState';
 import { loadSpecBindings } from 'providers/ReduxStore/slices/spec-lint';
 import { useSpecLint } from 'utils/spec-lint/use-spec-lint';
 import { BETA_FEATURES, useBetaFeature } from 'utils/beta-features';
-import SpecBindingBar from './SpecBindingBar';
+import SpecBindingBar from 'components/RequestPane/SpecBindingBar';
 
 const RequestBody = ({ item, collection }) => {
   const dispatch = useDispatch();

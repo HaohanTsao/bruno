@@ -757,7 +757,8 @@ const handleKeyupForAutocomplete = (cm, event, options) => {
 
   if (!hints) {
     const wordInfo = getCurrentWordWithContext(cm);
-    if (cm.state.completionActive && wordInfo) {
+    // A spec field list (see spec-key-hints.js) is not ours to close.
+    if (cm.state.completionActive && wordInfo && !cm.state.completionActive.options?.specKeyHints) {
       cm.state.completionActive.close();
     }
     return;

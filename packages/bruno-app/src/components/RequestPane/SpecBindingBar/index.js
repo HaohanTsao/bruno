@@ -112,14 +112,15 @@ const SpecPicker = ({ specs, summaries, onChoose, onClose, triggerRef }) => {
   );
 };
 
-const SpecBindingBar = ({ item, collection }) => {
+// `context` is the pane the bar sits in: 'body' (above the JSON body editor) or 'params' (above the query params).
+const SpecBindingBar = ({ item, collection, context = 'body' }) => {
   const dispatch = useDispatch();
   const slice = useSelector((state) => state.specLint.byCollection[collection.uid]);
   const data = slice ? slice.data : null;
   const broken = Boolean(slice && slice.error);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef(null);
-  const { binding, summary } = useSpecLint({ collection, item, enabled: true });
+  const { binding, summary } = useSpecLint({ collection, item, enabled: true, requireJsonBody: false });
   const summaries = useSpecSummaries({ collectionPath: collection.pathname, specs: data ? data.specs : [], enabled: open });
 
   const requestUrl = item.draft ? get(item, 'draft.request.url', '') : get(item, 'request.url', '');
@@ -145,8 +146,9 @@ const SpecBindingBar = ({ item, collection }) => {
   }, [operationKnown, requestUrl, binding]);
   // The operation exists but the spec gives it no JSON request body, so there is nothing to check a body against.
   const [bodyCheck, setBodyCheck] = useState(null);
+  const checkBody = operationKnown && context === 'body';
   useEffect(() => {
-    if (!operationKnown) {
+    if (!checkBody) {
       return undefined;
     }
     let alive = true;
@@ -161,9 +163,9 @@ const SpecBindingBar = ({ item, collection }) => {
     return () => {
       alive = false;
     };
-  }, [operationKnown, collection.pathname, binding]);
+  }, [checkBody, collection.pathname, binding]);
   const noJsonBody = Boolean(
-    operationKnown
+    checkBody
     && bodyCheck
     && bodyCheck.collectionPath === collection.pathname
     && bodyCheck.specPath === binding.spec

@@ -209,6 +209,12 @@ const convert = (ctx, schema, state) => {
       out[key] = schema[key];
     }
   }
+  // Annotations only: Ajv ignores them, completion uses them to leave out or mark fields.
+  for (const key of ['readOnly', 'deprecated']) {
+    if (schema[key] === true) {
+      out[key] = true;
+    }
+  }
 
   const hasRef = typeof schema.$ref === 'string';
   if (hasRef && resolvePointer(ctx.root, schema.$ref) !== undefined) {
@@ -498,4 +504,55 @@ const findFieldSchema = (schema, jsonPath) => {
   return { schema: resolveForDisplay(schema, current.schema), required: current.required };
 };
 
-module.exports = { getRequestSchema, toJsonSchema, findFieldSchema, ownerSpecOf, ALT_SUFFIX };
+const typeLabel = (type) => (Array.isArray(type) ? type.join('|') : type || 'any');
+
+/**
+ * Lists the properties the object at `jsonPath` may have, across $ref targets, allOf members and
+ * oneOf/anyOf branches, in the order the spec declares them. A property counts as required only when
+ * the object itself requires it, not when one branch does. readOnly properties are left out.
+ * Returns null when the path is not described.
+ */
+const listProperties = (schema, jsonPath) => {
+  const field = findFieldSchema(schema, jsonPath);
+  if (!field) {
+    return null;
+  }
+  const found = new Map();
+  const seen = new Set();
+  const visit = (node, inBranch) => {
+    const parts = collectParts(schema, node);
+    const required = new Set(inBranch ? [] : parts.flatMap((part) => (Array.isArray(part.required) ? part.required : [])));
+    for (const part of parts) {
+      for (const [name, value] of Object.entries(isObject(part.properties) ? part.properties : {})) {
+        const entry = found.get(name);
+        if (entry) {
+          entry.required = entry.required || required.has(name);
+          continue;
+        }
+        const display = resolveForDisplay(schema, value);
+        found.set(name, {
+          name,
+          type: typeLabel(isObject(display) ? display.type : undefined),
+          required: required.has(name),
+          description: isObject(display) && typeof display.description === 'string' ? display.description : '',
+          deprecated: isObject(display) && display.deprecated === true,
+          readOnly: isObject(display) && display.readOnly === true
+        });
+      }
+    }
+    for (const part of parts) {
+      for (const key of ['oneOf', 'anyOf']) {
+        for (const branch of Array.isArray(part[key]) ? part[key] : []) {
+          if (!seen.has(branch)) {
+            seen.add(branch);
+            visit(branch, true);
+          }
+        }
+      }
+    }
+  };
+  visit(field.schema, false);
+  return [...found.values()].filter((entry) => !entry.readOnly).map(({ readOnly, ...entry }) => entry);
+};
+
+module.exports = { getRequestSchema, toJsonSchema, findFieldSchema, listProperties, typeLabel, resolveRefChain, ownerSpecOf, ALT_SUFFIX };

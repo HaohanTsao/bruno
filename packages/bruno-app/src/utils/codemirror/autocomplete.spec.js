@@ -757,6 +757,23 @@ describe('Bruno Autocomplete', () => {
         expect(mockCompletion.close).toHaveBeenCalled();
       });
 
+      it('should leave a spec field list open', () => {
+        const options = { getAllVariables: mockGetAllVariables };
+        cleanupFn = setupAutoComplete(mockedCodemirror, options);
+        const keyupHandler = mockedCodemirror.on.mock.calls[0][1];
+
+        const mockCompletion = { close: jest.fn(), options: { specKeyHints: true } };
+        mockedCodemirror.state.completionActive = mockCompletion;
+
+        mockedCodemirror.getCursor.mockReturnValue({ line: 0, ch: 4 });
+        mockedCodemirror.getLine.mockReturnValue('"lim');
+        mockedCodemirror.getRange.mockReturnValue('"lim');
+
+        keyupHandler(mockedCodemirror, { key: 'm' });
+
+        expect(mockCompletion.close).not.toHaveBeenCalled();
+      });
+
       it('should pass options to getAutoCompleteHints', () => {
         const options = {
           getAllVariables: mockGetAllVariables,
