@@ -55,7 +55,8 @@ const defaultPreferences = {
   },
   beta: {
     'openapi-sync': false,
-    'mock-server': true
+    'mock-server': true,
+    'spec-lint': true
   },
   onboarding: {
     hasLaunchedBefore: false,
@@ -177,7 +178,8 @@ const preferencesSchema = Yup.object().shape({
   }),
   beta: Yup.object({
     'openapi-sync': Yup.boolean(),
-    'mock-server': Yup.boolean()
+    'mock-server': Yup.boolean(),
+    'spec-lint': Yup.boolean()
   }),
   onboarding: Yup.object({
     hasLaunchedBefore: Yup.boolean(),

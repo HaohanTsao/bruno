@@ -17,10 +17,10 @@ import StyledWrapper from './StyledWrapper';
 import StatusBar from './StatusBar';
 import * as jsonlint from '@prantlf/jsonlint';
 import { JSHINT } from 'jshint';
-import stripJsonComments from 'strip-json-comments';
 import { getAllVariables } from 'utils/collections';
 import { setupLinkAware } from 'utils/codemirror/linkAware';
 import { resolveLinkClickHandler } from 'utils/codemirror/linkClickHandler';
+import { jsonLintHelper } from 'utils/codemirror/json-lint';
 import { setupLintErrorTooltip } from 'utils/codemirror/lint-errors';
 import { setupCodeMirrorResizeRefresh } from 'utils/codemirror/resize';
 import CodeMirrorSearch from 'components/CodeMirrorSearch/index';
@@ -69,6 +69,7 @@ const buildCodeMirrorOptions = ({
       collection: props.collection,
       item: props.item
     } : false,
+    specFieldInfo: !degraded,
     keyMap: 'sublime',
     autoCloseBrackets: !degraded,
     matchBrackets: !degraded,
@@ -103,6 +104,7 @@ const applyEditorProfile = (
     collection: props.collection,
     item: props.item
   } : false);
+  editor.setOption('specFieldInfo', !degraded);
   editor.setOption('mode', degraded ? null : (props.mode || 'application/ld+json'));
 
   if (degraded) {
@@ -137,6 +139,9 @@ class CodeEditor extends React.Component {
       asi: true,
       highlightLines: true
     };
+    // A request bound to a spec is also checked against it; that check runs a little sooner. Every other editor
+    // keeps the addon's default delay.
+    this.specLintOptions = { ...this.lintOptions, delay: 300 };
 
     const longLineDetected = hasLongLine(this.cachedValue);
     this.longLineMode = longLineDetected;
@@ -150,10 +155,14 @@ class CodeEditor extends React.Component {
 
   _profileHelpers = () => ({
     props: this.props,
-    lintOptions: this.lintOptions,
+    lintOptions: this._currentLintOptions(),
     enableEnhancedFeatures: () => this._enableEnhancedFeatures(),
     disableEnhancedFeatures: () => this._disableEnhancedFeatures()
   });
+
+  _currentLintOptions() {
+    return this.props.specCtx ? this.specLintOptions : this.lintOptions;
+  }
 
   // Thin wrapper around the pure getDocKey helper from state-persistence.js.
   // Kept on the class so the rest of the lifecycle code reads naturally.
@@ -179,7 +188,7 @@ class CodeEditor extends React.Component {
       profile: longLineMode ? 'degraded' : 'normal',
       props: this.props,
       variables,
-      lintOptions: this.lintOptions,
+      lintOptions: this._currentLintOptions(),
       value: this.cachedValue,
       readOnly: Boolean(this.props.readOnly),
       extraKeys: {
@@ -248,31 +257,7 @@ class CodeEditor extends React.Component {
         }
       }
     })));
-    CodeMirror.registerHelper('lint', 'json', function (text) {
-      const found = [];
-      if (!window.jsonlint) {
-        if (window.console) {
-          window.console.error('Error: window.jsonlint not defined, CodeMirror JSON linting cannot run.');
-        }
-        return found;
-      }
-      const jsonlint = window.jsonlint.parser || window.jsonlint;
-      try {
-        jsonlint.parse(stripJsonComments(text.replace(/(?<!"[^":{]*){{[^}]*}}(?![^"},]*")/g, '1')));
-      } catch (error) {
-        const { message, location } = error;
-        const line = location?.start?.line;
-        const column = location?.start?.column;
-        if (line && column) {
-          found.push({
-            from: CodeMirror.Pos(line - 1, column),
-            to: CodeMirror.Pos(line - 1, column),
-            message
-          });
-        }
-      }
-      return found;
-    });
+    CodeMirror.registerHelper('lint', 'json', jsonLintHelper);
 
     if (editor) {
       // CM5 was constructed with props.value, so the editor already shows the
@@ -290,10 +275,15 @@ class CodeEditor extends React.Component {
         );
       }
 
+      editor.specCtx = this.props.specCtx;
       editor.setOption(
         'lint',
-        !longLineMode && this.props.mode && editor.getValue().trim().length > 0 ? this.lintOptions : false
+        !longLineMode && this.props.mode && editor.getValue().trim().length > 0 ? this._currentLintOptions() : false
       );
+      if (this.props.specCtx && !longLineMode) {
+        // The lint option set above already lints once; this one is for the spec check that needs specCtx.
+        editor.performLint();
+      }
       editor.on('beforeChange', this._onBeforeChange);
       editor.on('change', this._onEdit);
 
@@ -472,7 +462,7 @@ class CodeEditor extends React.Component {
     this.editor.setOption(
       'lint',
       !this.longLineMode && this.props.mode && this.editor.getValue().trim().length > 0
-        ? this.lintOptions
+        ? this._currentLintOptions()
         : false
     );
   };
@@ -554,6 +544,14 @@ class CodeEditor extends React.Component {
       }
     }
 
+    if (this.editor && !isEqual(prevProps.specCtx, this.props.specCtx)) {
+      this.editor.specCtx = this.props.specCtx;
+      if (this.editor.getOption('lint')) {
+        this.editor.setOption('lint', this._currentLintOptions());
+      }
+      this.editor.performLint();
+    }
+
     if (this.props.theme !== prevProps.theme && this.editor) {
       this.editor.setOption('theme', this.props.theme === 'dark' ? 'monokai' : 'default');
     }
@@ -596,6 +594,7 @@ class CodeEditor extends React.Component {
 
       this._disableEnhancedFeatures();
       this.editor.off('beforeChange', this._onBeforeChange);
+      this.editor.setOption('specFieldInfo', false);
       this.editor.off('change', this._onEdit);
 
       // Tear down the debounced fold-persistence listener. Cancel any pending
@@ -698,7 +697,7 @@ class CodeEditor extends React.Component {
       this._setLongLineMode(this.cachedValue);
       this.editor.setOption(
         'lint',
-        !this.longLineMode && this.cachedValue.trim().length > 0 ? this.lintOptions : false
+        !this.longLineMode && this.cachedValue.trim().length > 0 ? this._currentLintOptions() : false
       );
       if (this.props.onEdit) {
         this.props.onEdit(this.cachedValue);

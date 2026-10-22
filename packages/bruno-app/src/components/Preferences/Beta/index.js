@@ -76,6 +76,12 @@ const BETA_FEATURES = [
     label: 'gRPC Scripting',
     description: 'Write scripts for gRPC requests. Inspect messages, metadata, and status across the call lifecycle.',
     docsUrl: 'https://link.usebruno.com/docs/grpc-scripting'
+  },
+  {
+    id: BETA_FEATURE_IDS.SPEC_LINT,
+    label: 'Spec Lint',
+    description: 'Check JSON request bodies against bound OpenAPI specs and show field descriptions on hover.',
+    defaultEnabled: true
   }
 ];
 

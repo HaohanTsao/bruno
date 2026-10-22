@@ -11,6 +11,7 @@ import Script from './Script';
 import Test from './Tests';
 import Presets from './Presets';
 import Protobuf from './Protobuf';
+import ApiSpecs from './ApiSpecs';
 import StyledWrapper from './StyledWrapper';
 import Vars from './Vars/index';
 import StatusDot from 'components/StatusDot';
@@ -101,6 +102,9 @@ const CollectionSettings = ({ collection }) => {
       case 'protobuf': {
         return <Protobuf collection={collection} />;
       }
+      case 'apiSpecs': {
+        return <ApiSpecs collection={collection} />;
+      }
     }
   };
 
@@ -152,6 +156,9 @@ const CollectionSettings = ({ collection }) => {
           <div className={getTabClassname('protobuf')} role="tab" data-testid="collection-settings-tab-protobuf" onClick={() => setTab('protobuf')}>
             Protobuf
             {protobufConfig.protoFiles && protobufConfig.protoFiles.length > 0 && <StatusDot />}
+          </div>
+          <div className={getTabClassname('apiSpecs')} role="tab" data-testid="collection-settings-tab-apiSpecs" onClick={() => setTab('apiSpecs')}>
+            Spec Lint
           </div>
         </div>
         {AI_TABS.includes(tab) && (

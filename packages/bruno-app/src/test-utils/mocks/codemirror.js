@@ -14,6 +14,8 @@ const CodeMirror = jest.fn((node, options) => {
     setOption: jest.fn((key, value) => {
       editor.options[key] = value;
     }),
+    getOption: jest.fn((key) => editor.options[key]),
+    performLint: jest.fn(),
     refresh: jest.fn(),
     off: jest.fn(),
     showHint: jest.fn(),
