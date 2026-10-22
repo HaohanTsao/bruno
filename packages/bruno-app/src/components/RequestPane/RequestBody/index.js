@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import get from 'lodash/get';
 import CodeEditor from 'components/CodeEditor';
 import FormUrlEncodedParams from 'components/RequestPane/FormUrlEncodedParams';
@@ -10,6 +10,10 @@ import { sendRequest, saveRequest } from 'providers/ReduxStore/slices/collection
 import StyledWrapper from './StyledWrapper';
 import FileBody from '../FileBody/index';
 import { usePersistedState } from 'hooks/usePersistedState';
+import { loadSpecBindings } from 'providers/ReduxStore/slices/spec-lint';
+import { useSpecLint } from 'utils/spec-lint/use-spec-lint';
+import { BETA_FEATURES, useBetaFeature } from 'utils/beta-features';
+import SpecBindingBar from './SpecBindingBar';
 
 const RequestBody = ({ item, collection }) => {
   const dispatch = useDispatch();
@@ -19,6 +23,15 @@ const RequestBody = ({ item, collection }) => {
   const { displayedTheme } = useTheme();
   const preferences = useSelector((state) => state.app.preferences);
   const [bodyScroll, setBodyScroll] = usePersistedState({ key: `request-body-${bodyMode}-scroll-${item.uid}`, default: 0 });
+  const specLintEnabled = useBetaFeature(BETA_FEATURES.SPEC_LINT);
+  const { specCtx } = useSpecLint({ collection, item, enabled: specLintEnabled });
+
+  // The file can change outside Bruno (git pull, a hand edit), so it is read again whenever a request body is shown.
+  useEffect(() => {
+    if (specLintEnabled) {
+      dispatch(loadSpecBindings(collection.uid));
+    }
+  }, [specLintEnabled, item.uid, collection.uid, dispatch]);
 
   const onEdit = (value) => {
     dispatch(
@@ -50,23 +63,27 @@ const RequestBody = ({ item, collection }) => {
 
     return (
       <StyledWrapper className="w-full" data-testid="request-body-editor">
-        <CodeEditor
-          ref={editorRef}
-          collection={collection}
-          item={item}
-          theme={displayedTheme}
-          font={get(preferences, 'font.codeFont', 'default')}
-          fontSize={get(preferences, 'font.codeFontSize')}
-          value={bodyContent[bodyMode] || ''}
-          onEdit={onEdit}
-          onRun={onRun}
-          onSave={onSave}
-          initialScroll={bodyScroll}
-          onScroll={setBodyScroll}
-          mode={codeMirrorMode[bodyMode]}
-          enableVariableHighlighting={true}
-          showHintsFor={['variables']}
-        />
+        {bodyMode === 'json' && specLintEnabled && <SpecBindingBar item={item} collection={collection} />}
+        <div className="body-editor">
+          <CodeEditor
+            ref={editorRef}
+            collection={collection}
+            item={item}
+            theme={displayedTheme}
+            font={get(preferences, 'font.codeFont', 'default')}
+            fontSize={get(preferences, 'font.codeFontSize')}
+            value={bodyContent[bodyMode] || ''}
+            onEdit={onEdit}
+            onRun={onRun}
+            onSave={onSave}
+            initialScroll={bodyScroll}
+            onScroll={setBodyScroll}
+            mode={codeMirrorMode[bodyMode]}
+            enableVariableHighlighting={true}
+            showHintsFor={['variables']}
+            specCtx={bodyMode === 'json' ? specCtx : null}
+          />
+        </div>
       </StyledWrapper>
     );
   }

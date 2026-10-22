@@ -19,6 +19,11 @@ const BETA_FEATURES = [
     id: BETA_FEATURE_IDS.OPENAPI_SYNC,
     label: 'OpenAPI Sync',
     description: 'Synchronize your Bruno collection with an OpenAPI specification. Detect drift, review changes, and sync with a single click.'
+  },
+  {
+    id: BETA_FEATURE_IDS.SPEC_LINT,
+    label: 'Spec Lint',
+    description: 'Check JSON request bodies against bound OpenAPI specs and show field descriptions on hover.'
   }
 ];
 

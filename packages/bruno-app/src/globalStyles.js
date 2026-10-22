@@ -291,6 +291,47 @@ const GlobalStyle = createGlobalStyle`
     z-index: 10;
   }
 
+  .cm-spec-field-hover {
+    text-decoration: underline;
+    text-decoration-color: ${(props) => props.theme.textLink};
+  }
+
+  .spec-field-card {
+    position: fixed;
+    z-index: 10;
+    box-sizing: border-box;
+    padding: 0.5rem;
+    color: ${(props) => props.theme.text};
+    background: ${(props) => props.theme.dropdown.bg};
+    ${(props) =>
+      props.theme.dropdown.shadow && props.theme.dropdown.shadow !== 'none'
+        ? `box-shadow: ${props.theme.dropdown.shadow};`
+        : ''}
+    border-radius: ${(props) => props.theme.border.radius.base};
+    ${(props) =>
+      props.theme.dropdown.border && props.theme.dropdown.border !== 'none'
+        ? `border: 1px solid ${props.theme.dropdown.border};`
+        : ''}
+    font-size: ${(props) => props.theme.font.size.base};
+    line-height: 1.25rem;
+  }
+
+  .spec-field-card .spec-field-path {
+    font-family: monospace;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+
+  .spec-field-card .spec-field-meta {
+    color: ${(props) => props.theme.colors.text.muted};
+    font-size: ${(props) => props.theme.font.size.xs};
+    margin-bottom: 0.25rem;
+  }
+
+  .spec-field-card .spec-field-description {
+    overflow-wrap: anywhere;
+  }
+
   // Autocomplete hints dropdown container
   .CodeMirror-hints {
     z-index: 50 !important;

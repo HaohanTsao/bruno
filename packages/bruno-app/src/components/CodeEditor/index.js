@@ -12,9 +12,9 @@ import { setupAutoComplete, showRootHints } from 'utils/codemirror/autocomplete'
 import StyledWrapper from './StyledWrapper';
 import * as jsonlint from '@prantlf/jsonlint';
 import { JSHINT } from 'jshint';
-import stripJsonComments from 'strip-json-comments';
 import { getAllVariables } from 'utils/collections';
 import { setupLinkAware } from 'utils/codemirror/linkAware';
+import { jsonLintHelper } from 'utils/codemirror/json-lint';
 import { setupLintErrorTooltip } from 'utils/codemirror/lint-errors';
 import { setupCodeMirrorResizeRefresh } from 'utils/codemirror/resize';
 import CodeMirrorSearch from 'components/CodeMirrorSearch/index';
@@ -51,10 +51,17 @@ class CodeEditor extends React.Component {
       asi: true,
       highlightLines: true
     };
+    // A request bound to a spec is also checked against it; that check runs a little sooner. Every other editor
+    // keeps the addon's default delay.
+    this.specLintOptions = { ...this.lintOptions, delay: 300 };
 
     this.state = {
       searchBarVisible: false
     };
+  }
+
+  _currentLintOptions() {
+    return this.props.specCtx ? this.specLintOptions : this.lintOptions;
   }
 
   // Thin wrapper around the pure getDocKey helper from state-persistence.js.
@@ -88,13 +95,14 @@ class CodeEditor extends React.Component {
         collection: this.props.collection,
         item: this.props.item
       } : false,
+      specFieldInfo: true,
       keyMap: 'sublime',
       autoCloseBrackets: true,
       matchBrackets: true,
       showCursorWhenSelecting: true,
       foldGutter: true,
       gutters: ['CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
-      lint: this.lintOptions,
+      lint: this._currentLintOptions(),
       readOnly: this.props.readOnly,
       scrollbarStyle: 'overlay',
       theme: this.props.theme === 'dark' ? 'monokai' : 'default',
@@ -175,31 +183,7 @@ class CodeEditor extends React.Component {
         }
       }
     }));
-    CodeMirror.registerHelper('lint', 'json', function (text) {
-      let found = [];
-      if (!window.jsonlint) {
-        if (window.console) {
-          window.console.error('Error: window.jsonlint not defined, CodeMirror JSON linting cannot run.');
-        }
-        return found;
-      }
-      let jsonlint = window.jsonlint.parser || window.jsonlint;
-      try {
-        jsonlint.parse(stripJsonComments(text.replace(/(?<!"[^":{]*){{[^}]*}}(?![^"},]*")/g, '1')));
-      } catch (error) {
-        const { message, location } = error;
-        const line = location?.start?.line;
-        const column = location?.start?.column;
-        if (line && column) {
-          found.push({
-            from: CodeMirror.Pos(line - 1, column),
-            to: CodeMirror.Pos(line - 1, column),
-            message
-          });
-        }
-      }
-      return found;
-    });
+    CodeMirror.registerHelper('lint', 'json', jsonLintHelper);
 
     if (editor) {
       // CM5 was constructed with props.value, so the editor already shows the
@@ -215,7 +199,12 @@ class CodeEditor extends React.Component {
         this.cachedValue
       );
 
-      editor.setOption('lint', this.props.mode && editor.getValue().trim().length > 0 ? this.lintOptions : false);
+      editor.specCtx = this.props.specCtx;
+      editor.setOption('lint', this.props.mode && editor.getValue().trim().length > 0 ? this._currentLintOptions() : false);
+      if (this.props.specCtx) {
+        // The lint option set above already lints once; this one is for the spec check that needs specCtx.
+        editor.performLint();
+      }
       editor.on('change', this._onEdit);
 
       // Persist view state immediately when the user folds or unfolds — without
@@ -319,7 +308,7 @@ class CodeEditor extends React.Component {
         this.addOverlay();
         this.editor.setOption(
           'lint',
-          this.props.mode && this.editor.getValue().trim().length > 0 ? this.lintOptions : false
+          this.props.mode && this.editor.getValue().trim().length > 0 ? this._currentLintOptions() : false
         );
       } else if (this.props.value !== prevProps.value && this.props.value !== this.cachedValue) {
         // Path 2 — same tab, new external value (e.g. a fresh response arrived
@@ -350,6 +339,14 @@ class CodeEditor extends React.Component {
           this.editor.options.brunoVarInfo.item = this.props.item;
         }
       }
+    }
+
+    if (this.editor && !isEqual(prevProps.specCtx, this.props.specCtx)) {
+      this.editor.specCtx = this.props.specCtx;
+      if (this.editor.getOption('lint')) {
+        this.editor.setOption('lint', this._currentLintOptions());
+      }
+      this.editor.performLint();
     }
 
     if (this.props.theme !== prevProps.theme && this.editor) {
@@ -392,6 +389,7 @@ class CodeEditor extends React.Component {
         });
       }
 
+      this.editor.setOption('specFieldInfo', false);
       this.editor?._destroyLinkAware?.();
       this.editor.off('change', this._onEdit);
 
@@ -459,7 +457,7 @@ class CodeEditor extends React.Component {
 
   _onEdit = () => {
     if (!this.ignoreChangeEvent && this.editor) {
-      this.editor.setOption('lint', this.editor.getValue().trim().length > 0 ? this.lintOptions : false);
+      this.editor.setOption('lint', this.editor.getValue().trim().length > 0 ? this._currentLintOptions() : false);
       this.cachedValue = this.editor.getValue();
       if (this.props.onEdit) {
         this.props.onEdit(this.cachedValue);

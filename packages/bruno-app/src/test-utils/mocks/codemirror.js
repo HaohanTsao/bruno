@@ -11,6 +11,8 @@ const CodeMirror = jest.fn((node, options) => {
     }),
     getLine: jest.fn(() => editor._currentValue || ''),
     setOption: jest.fn(),
+    getOption: jest.fn(),
+    performLint: jest.fn(),
     refresh: jest.fn(),
     off: jest.fn(),
     showHint: jest.fn(),

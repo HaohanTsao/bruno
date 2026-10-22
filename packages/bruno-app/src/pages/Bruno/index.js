@@ -52,6 +52,7 @@ require('codemirror-graphql/lint');
 require('codemirror-graphql/mode');
 
 require('utils/codemirror/brunoVarInfo');
+require('utils/codemirror/spec-field-info');
 require('utils/codemirror/javascript-lint');
 require('utils/codemirror/autocomplete');
 
