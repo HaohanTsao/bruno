@@ -37,7 +37,7 @@ const applyOp = (data, op) => {
   return data;
 };
 
-const renderBar = ({ data = { specs: [], bindings: {} }, error = null, requestItem = item() } = {}) => {
+const renderBar = ({ data = { specs: [], bindings: {} }, error = null, requestItem = item(), context } = {}) => {
   currentData = data;
   const store = configureStore({
     reducer: {
@@ -51,7 +51,7 @@ const renderBar = ({ data = { specs: [], bindings: {} }, error = null, requestIt
     <ThemeContext.Provider value={{ theme: themes.light }}>
       <ThemeProvider theme={themes.light}>
         <Provider store={store}>
-          <SpecBindingBar item={requestItem} collection={collection} />
+          <SpecBindingBar item={requestItem} collection={collection} context={context} />
         </Provider>
       </ThemeProvider>
     </ThemeContext.Provider>
@@ -122,6 +122,16 @@ it('does not mention a missing JSON body when the spec has one', async () => {
   renderBar({ data: boundData });
   await screen.findByText('POST /v3/limit · example-a.yaml');
   await waitFor(() => expect(operationHasJsonBody).toHaveBeenCalled());
+  expect(screen.queryByText('This API has no JSON body in the spec')).toBeNull();
+});
+
+it('in the params pane, binds a request without a JSON body and never checks for one', async () => {
+  operationHasJsonBody.mockResolvedValue(false);
+  const getItem = { uid: 'i1', pathname: '/c/limit.yml', request: { url: '{{SVC_D}}/v3/limit', body: { mode: 'none' } } };
+  renderBar({ data: boundData, requestItem: getItem, context: 'params' });
+  expect(await screen.findByText('POST /v3/limit · example-a.yaml')).toBeInTheDocument();
+  await waitFor(() => expect(urlDiffersFromSpec).toHaveBeenCalled());
+  expect(operationHasJsonBody).not.toHaveBeenCalled();
   expect(screen.queryByText('This API has no JSON body in the spec')).toBeNull();
 });
 

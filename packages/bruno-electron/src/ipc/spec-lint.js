@@ -1,7 +1,8 @@
 const { ipcMain } = require('electron');
 const { getSpec } = require('../utils/spec-lint/spec-cache');
 const { getRequestSchema } = require('../utils/spec-lint/schema');
-const { lintBody, describeField, urlDiffers } = require('../utils/spec-lint');
+const { lintBody, describeField, completeKeys, urlDiffers } = require('../utils/spec-lint');
+const { listQueryParams } = require('../utils/spec-lint/parameters');
 const { readBindingsFile, updateBindingsFile, toStoredPath, resolveSpecPath } = require('../utils/spec-lint/bindings-file');
 
 // Registers a handler that never throws: any failure comes back as { error }.
@@ -49,6 +50,17 @@ const registerSpecLintIpc = () => {
   handle('renderer:spec-lint-describe', ({ text, offset, ...target }) => {
     const ctx = loadContext(target);
     return { info: ctx ? describeField(text, offset, ctx) : null };
+  });
+
+  handle('renderer:spec-lint-complete-keys', ({ text, offset, ...target }) => {
+    const ctx = loadContext(target);
+    return { items: ctx ? completeKeys(text, offset, ctx) : null };
+  });
+
+  handle('renderer:spec-lint-query-params', ({ collectionPath, specPath, method, path }) => {
+    const loaded = getSpec(resolveSpecPath(collectionPath, specPath));
+    const params = loaded.ok ? listQueryParams(loaded.spec, method, path) : null;
+    return params ? { params } : { missing: true };
   });
 
   handle('renderer:spec-lint-url-differs', ({ requestUrl, specOperationPath }) => ({ differs: urlDiffers(requestUrl, specOperationPath) }));

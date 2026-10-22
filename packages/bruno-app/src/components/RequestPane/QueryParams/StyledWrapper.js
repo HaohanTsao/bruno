@@ -38,6 +38,44 @@ const Wrapper = styled.div`
     }
   }
 
+  .spec-param-cell {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .spec-param-icon {
+    flex: none;
+    margin-left: 4px;
+    color: ${(props) => props.theme.colors.text.muted};
+    cursor: pointer;
+  }
+
+  .spec-missing-required {
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .spec-param-tooltip {
+    max-width: 420px;
+    z-index: 20;
+  }
+
+  .spec-param-details .spec-param-name {
+    font-family: monospace;
+    font-weight: 500;
+  }
+
+  .spec-param-details .spec-param-meta {
+    opacity: 0.75;
+    margin-bottom: 0.25rem;
+  }
+
+  .spec-param-details .spec-param-description {
+    white-space: pre-wrap;
+    margin-top: 0.25rem;
+  }
+
   .bulk-edit-bar {
     position: sticky;
     bottom: 0;

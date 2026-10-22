@@ -86,3 +86,12 @@ it('does not update after unmount', async () => {
   await act(async () => { resolveSummary(summary); });
   expect(renders).toBe(before);
 });
+
+it('applies to any body mode when the JSON body is not required', async () => {
+  getSpecSummary.mockResolvedValue(summary);
+  const store = makeStore();
+  const { result: json } = renderHook(() => useSpecLint({ collection, item: makeItem('none'), enabled: true }), { wrapper: wrapperFor(store) });
+  const { result: any } = renderHook(() => useSpecLint({ collection, item: makeItem('none'), enabled: true, requireJsonBody: false }), { wrapper: wrapperFor(store) });
+  await waitFor(() => expect(any.current.specCtx).toEqual({ collectionPath: '/c', specPath: 'spec.yaml', method: 'POST', path: '/v3/limit' }));
+  expect(json.current.specCtx).toBeNull();
+});

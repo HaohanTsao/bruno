@@ -5,10 +5,11 @@ import { bindingKey, getBinding } from './bindings';
 import { getSpecSummary } from './ipc';
 
 /**
- * Spec-lint state of one request: its binding, the summary of the bound spec and `specCtx`, the target the JSON
- * editor lints against (null when no spec check applies).
+ * Spec-lint state of one request: its binding, the summary of the bound spec and `specCtx`, the bound operation the
+ * editors check against (null when no spec check applies). With `requireJsonBody` (the default) a check applies
+ * only while the body mode is JSON.
  */
-export const useSpecLint = ({ collection, item, enabled }) => {
+export const useSpecLint = ({ collection, item, enabled, requireJsonBody = true }) => {
   const data = useSelector((state) => state.specLint.byCollection[collection.uid]?.data);
   const bodyMode = item.draft ? get(item, 'draft.request.body.mode') : get(item, 'request.body.mode');
   const binding = data ? getBinding(data, bindingKey(collection.pathname, item.pathname)) : null;
@@ -16,7 +17,7 @@ export const useSpecLint = ({ collection, item, enabled }) => {
   const specPath = binding ? binding.spec : null;
   const method = binding ? binding.method : null;
   const path = binding ? binding.path : null;
-  const wanted = Boolean(enabled && bodyMode === 'json' && specPath);
+  const wanted = Boolean(enabled && (bodyMode === 'json' || !requireJsonBody) && specPath);
 
   // The summary is tagged with the spec it was loaded for, so a binding change never shows the previous spec's summary.
   const [loaded, setLoaded] = useState(null);

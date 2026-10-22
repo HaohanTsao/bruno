@@ -60,6 +60,15 @@ test('summary of a Swagger 2.0 file reports the load error', async () => {
   expect(await call('renderer:spec-lint-spec-summary', { collectionPath: dir, specPath: 'old.yaml' }))
     .toEqual({ ok: false, error: 'Swagger 2.0 is not supported. Use an OpenAPI 3.x spec.' });
 });
+test('key completion and query parameters work end to end', async () => {
+  const specPath = path.relative(dir, demo);
+  const k = await call('renderer:spec-lint-complete-keys', { collectionPath: dir, specPath, method: 'POST', path: '/users', text: '{"name": "A", ""}', offset: 15 });
+  expect(k.items.map((item) => item.name)).toEqual(['email', 'role', 'status', 'level', 'phone']);
+  expect(await call('renderer:spec-lint-complete-keys', { collectionPath: dir, specPath, method: 'GET', path: '/users', text: '{}', offset: 1 })).toEqual({ items: null });
+  const q = await call('renderer:spec-lint-query-params', { collectionPath: dir, specPath, method: 'GET', path: '/users' });
+  expect(q.params.map((param) => param.name)).toEqual(['limit', 'role']);
+  expect(await call('renderer:spec-lint-query-params', { collectionPath: dir, specPath: 'nope.yaml', method: 'GET', path: '/users' })).toEqual({ missing: true });
+});
 test('url-differs answers for the bar', async () => {
   expect(await call('renderer:spec-lint-url-differs', { requestUrl: '{{SVC_D}}/v2/limit', specOperationPath: '/v3/limit' })).toEqual({ differs: true });
 });

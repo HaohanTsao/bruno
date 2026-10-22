@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import get from 'lodash/get';
 import InfoTip from 'components/InfoTip';
 import { useDispatch, useSelector } from 'react-redux';
@@ -11,11 +11,20 @@ import {
 import { saveRequest, sendRequest } from 'providers/ReduxStore/slices/collections/actions';
 import { updateTableColumnWidths } from 'providers/ReduxStore/slices/tabs';
 import MultiLineEditor from 'components/MultiLineEditor';
+import SingleLineEditor from 'components/SingleLineEditor';
 import EditableTable from 'components/EditableTable';
 import StyledWrapper from './StyledWrapper';
 import BulkEditor from '../../BulkEditor';
 import { usePersistedState } from 'hooks/usePersistedState';
 import { useTrackScroll } from 'hooks/useTrackScroll';
+import { loadSpecBindings } from 'providers/ReduxStore/slices/spec-lint';
+import { BETA_FEATURES, useBetaFeature } from 'utils/beta-features';
+import { useSpecQueryParams } from 'utils/spec-lint/use-spec-query-params';
+import { missingRequired, unusedParams, valueChoices, withRequiredAdded } from 'utils/spec-lint/query-params';
+import { openCellHintsOnEmpty } from 'utils/codemirror/cell-hints';
+import { renderSpecFieldHint } from 'utils/codemirror/spec-key-hints';
+import SpecBindingBar from '../RequestBody/SpecBindingBar';
+import SpecParamInfo from './SpecParamInfo';
 
 const QueryParams = ({ item, collection }) => {
   const dispatch = useDispatch();
@@ -30,6 +39,23 @@ const QueryParams = ({ item, collection }) => {
   const wrapperRef = useRef(null);
   const [scroll, setScroll] = usePersistedState({ key: `request-params-scroll-${item.uid}`, default: 0 });
   useTrackScroll({ ref: wrapperRef, selector: '.flex-boundary', onChange: setScroll, initialValue: scroll });
+
+  const specLintEnabled = useBetaFeature(BETA_FEATURES.SPEC_LINT);
+  const specParams = useSpecQueryParams({ collection, item, enabled: specLintEnabled });
+  const specParamsByName = useMemo(() => new Map((specParams || []).map((param) => [param.name, param])), [specParams]);
+  const hasSpecParams = Boolean(specParams && specParams.length);
+  const missing = hasSpecParams ? missingRequired(specParams, queryParams) : [];
+
+  // The file can change outside Bruno (git pull, a hand edit), so it is read again whenever the params are shown.
+  useEffect(() => {
+    if (specLintEnabled) {
+      dispatch(loadSpecBindings(collection.uid));
+    }
+  }, [specLintEnabled, item.uid, collection.uid, dispatch]);
+
+  // Name cells offer the spec parameters no other row uses yet; an empty cell lists them on click.
+  const nameEntries = (ownName) =>
+    unusedParams(specParams || [], queryParams, ownName).map((param) => ({ text: param.name, item: param, render: renderSpecFieldHint }));
 
   // Get column widths from Redux
   const focusedTab = tabs?.find((t) => t.uid === activeTabUid);
@@ -75,31 +101,66 @@ const QueryParams = ({ item, collection }) => {
     setIsBulkEditMode(!isBulkEditMode);
   };
 
+  const addMissingRequired = () => handleQueryParamsChange(withRequiredAdded(specParams, queryParams));
+
   const queryColumns = [
     {
       key: 'name',
       name: 'Name',
       isKeyField: true,
       placeholder: 'Name',
-      width: '30%'
+      width: '30%',
+      // Without spec query parameters the name stays a plain input, as in Bruno.
+      render: hasSpecParams
+        ? ({ row, value, onChange }) => {
+            const param = specParamsByName.get(value);
+            const entries = nameEntries(value || '');
+            return (
+              <div className="spec-param-cell" onMouseUp={(event) => openCellHintsOnEmpty(event, entries)}>
+                <SingleLineEditor
+                  value={value || ''}
+                  theme={storedTheme}
+                  onSave={onSave}
+                  onChange={(newValue) => onChange(newValue.replace(/[\r\n]/g, ''))}
+                  autocomplete={entries.map((entry) => entry.text)}
+                  onRun={handleRun}
+                  collection={collection}
+                  item={item}
+                  placeholder={!value ? 'Name' : ''}
+                />
+                {param && <SpecParamInfo param={param} id={`spec-param-${row.uid}`} />}
+              </div>
+            );
+          }
+        : undefined
     },
     {
       key: 'value',
       name: 'Value',
       placeholder: 'Value',
-      render: ({ value, onChange }) => (
-        <MultiLineEditor
-          value={value || ''}
-          theme={storedTheme}
-          onSave={onSave}
-          onChange={onChange}
-          onRun={handleRun}
-          collection={collection}
-          item={item}
-          variablesAutocomplete={true}
-          placeholder={!value ? 'Value' : ''}
-        />
-      )
+      render: ({ row, value, onChange }) => {
+        const choices = valueChoices(specParamsByName.get(row.name));
+        const editor = (
+          <MultiLineEditor
+            value={value || ''}
+            theme={storedTheme}
+            onSave={onSave}
+            onChange={onChange}
+            onRun={handleRun}
+            collection={collection}
+            item={item}
+            variablesAutocomplete={true}
+            autocomplete={choices.length ? choices : undefined}
+            placeholder={!value ? 'Value' : ''}
+          />
+        );
+        // An empty value cell of a parameter with fixed values lists them on click.
+        return choices.length ? (
+          <div className="spec-param-cell" onMouseUp={(event) => openCellHintsOnEmpty(event, choices.map((text) => ({ text })))}>
+            {editor}
+          </div>
+        ) : editor;
+      }
     }
   ];
 
@@ -153,6 +214,7 @@ const QueryParams = ({ item, collection }) => {
   return (
     <StyledWrapper className="w-full flex flex-col" ref={wrapperRef}>
       <div className="flex-1">
+        {specLintEnabled && <SpecBindingBar item={item} collection={collection} context="params" />}
         <div className="mb-3 title text-xs">Query</div>
         <EditableTable
           tableId="query-params"
@@ -166,6 +228,14 @@ const QueryParams = ({ item, collection }) => {
           onColumnWidthsChange={(widths) => handleColumnWidthsChange('query-params', widths)}
           initialScroll={scroll}
         />
+        {missing.length > 0 && (
+          <div className="spec-missing-required mt-2 text-xs" data-testid="spec-missing-required">
+            <span>{`Spec requires: ${missing.map((param) => param.name).join(', ')}`}</span>
+            <button type="button" className="text-link ml-2" onClick={addMissingRequired}>
+              Add
+            </button>
+          </div>
+        )}
         <div className="bulk-edit-bar flex justify-end mt-2">
           <button className="btn-action text-link select-none" onClick={toggleBulkEditMode}>
             Bulk Edit

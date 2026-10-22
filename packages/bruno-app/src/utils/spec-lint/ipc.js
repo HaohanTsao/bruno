@@ -58,6 +58,18 @@ export const describeWithSpec = async (args) => {
   return result.info || null;
 };
 
+/** Spec fields that can be typed as a key at `offset` of `text`, or null when `offset` is not where a key goes. */
+export const completeKeysWithSpec = async (args) => {
+  const result = await invoke('renderer:spec-lint-complete-keys', args);
+  return Array.isArray(result.items) ? result.items : null;
+};
+
+/** Query parameters of the bound operation, or null when the spec or the operation cannot be found. */
+export const getQueryParamsFromSpec = async ({ collectionPath, specPath, method, path }) => {
+  const result = await invoke('renderer:spec-lint-query-params', { collectionPath, specPath, method, path });
+  return Array.isArray(result.params) ? result.params : null;
+};
+
 export const urlDiffersFromSpec = async ({ requestUrl, specOperationPath }) => {
   const result = await invoke('renderer:spec-lint-url-differs', { requestUrl, specOperationPath });
   return result.differs === true;

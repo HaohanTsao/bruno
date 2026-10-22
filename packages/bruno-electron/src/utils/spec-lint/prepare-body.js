@@ -90,4 +90,4 @@ const prepareBody = (text) => {
   return { ok: true, value: dropNullProperties(getNodeValue(tree)), tree, skipped };
 };
 
-module.exports = { prepareBody };
+module.exports = { prepareBody, neutralize };

@@ -96,6 +96,7 @@ class CodeEditor extends React.Component {
         item: this.props.item
       } : false,
       specFieldInfo: true,
+      specKeyHints: true,
       keyMap: 'sublime',
       autoCloseBrackets: true,
       matchBrackets: true,
@@ -390,6 +391,7 @@ class CodeEditor extends React.Component {
       }
 
       this.editor.setOption('specFieldInfo', false);
+      this.editor.setOption('specKeyHints', false);
       this.editor?._destroyLinkAware?.();
       this.editor.off('change', this._onEdit);
 
