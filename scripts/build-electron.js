@@ -66,49 +66,54 @@ async function execCommandWithOutput(command) {
   });
 }
 
+// Copies the web build into the electron package, the step before electron-builder runs.
+async function prepareElectronWeb() {
+  // Remove out directory
+  await deleteFileIfExists('packages/bruno-electron/out');
+
+  // Remove web directory
+  await deleteFileIfExists('packages/bruno-electron/web');
+
+  // Create a new web directory
+  await fs.ensureDir('packages/bruno-electron/web');
+  console.log('The directory has been created successfully!');
+
+  // Copy build
+  await copyFolderIfExists('packages/bruno-app/dist', 'packages/bruno-electron/web');
+
+  // Update static paths
+  const files = await fs.readdir('packages/bruno-electron/web');
+  for (const file of files) {
+    if (file.endsWith('.html')) {
+      let content = await fs.readFile(`packages/bruno-electron/web/${file}`, 'utf8');
+      content = content.replace(/\/static/g, './static');
+      await fs.writeFile(`packages/bruno-electron/web/${file}`, content);
+    }
+  }
+
+  // update font load paths
+  const cssDir = path.join('packages/bruno-electron/web/static/css');
+  try {
+    const cssFiles = await fs.readdir(cssDir);
+    for (const file of cssFiles) {
+      if (file.endsWith('.css')) {
+        const filePath = path.join(cssDir, file);
+        let content = await fs.readFile(filePath, 'utf8');
+        content = content.replace(/\/static\/font/g, '../../static/font');
+        await fs.writeFile(filePath, content);
+      }
+    }
+  } catch (error) {
+    console.error(`Error updating font paths: ${error}`);
+  }
+
+  // Remove sourcemaps
+  await removeSourceMapFiles('packages/bruno-electron/web');
+}
+
 async function main() {
   try {
-    // Remove out directory
-    await deleteFileIfExists('packages/bruno-electron/out');
-
-    // Remove web directory
-    await deleteFileIfExists('packages/bruno-electron/web');
-
-    // Create a new web directory
-    await fs.ensureDir('packages/bruno-electron/web');
-    console.log('The directory has been created successfully!');
-
-    // Copy build
-    await copyFolderIfExists('packages/bruno-app/dist', 'packages/bruno-electron/web');
-
-    // Update static paths
-    const files = await fs.readdir('packages/bruno-electron/web');
-    for (const file of files) {
-      if (file.endsWith('.html')) {
-        let content = await fs.readFile(`packages/bruno-electron/web/${file}`, 'utf8');
-        content = content.replace(/\/static/g, './static');
-        await fs.writeFile(`packages/bruno-electron/web/${file}`, content);
-      }
-    }
-
-    // update font load paths
-    const cssDir = path.join('packages/bruno-electron/web/static/css');
-    try {
-      const cssFiles = await fs.readdir(cssDir);
-      for (const file of cssFiles) {
-        if (file.endsWith('.css')) {
-          const filePath = path.join(cssDir, file);
-          let content = await fs.readFile(filePath, 'utf8');
-          content = content.replace(/\/static\/font/g, '../../static/font');
-          await fs.writeFile(filePath, content);
-        }
-      }
-    } catch (error) {
-      console.error(`Error updating font paths: ${error}`);
-    }
-
-    // Remove sourcemaps
-    await removeSourceMapFiles('packages/bruno-electron/web');
+    await prepareElectronWeb();
 
     // Run npm dist command
     console.log('Building the Electron distribution');
@@ -129,4 +134,8 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { prepareElectronWeb };

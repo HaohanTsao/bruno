@@ -1,0 +1,70 @@
+name: Build Bruno SpecLint
+
+# Runs only from the Actions tab ("Run workflow"), never on push.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Installers to build'
+        type: choice
+        options: [windows, mac, both]
+        default: windows
+      version:
+        description: 'Version shown in the app (semver)'
+        type: string
+        default: '4.2.1-speclint.1'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows installer
+    if: inputs.platform != 'mac'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+        with:
+          shell: pwsh
+
+      - name: Build
+        shell: pwsh
+        env:
+          SPECLINT_VERSION: ${{ inputs.version }}
+        run: node scripts/build-speclint.js win --x64
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: bruno-speclint-${{ inputs.version }}-windows
+          path: |
+            packages/bruno-electron/out/*.exe
+            packages/bruno-electron/out/*.zip
+          if-no-files-found: error
+
+  mac:
+    name: Mac installer
+    if: inputs.platform != 'windows'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+
+      - name: Build
+        env:
+          SPECLINT_VERSION: ${{ inputs.version }}
+        run: node scripts/build-speclint.js mac --arm64
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: bruno-speclint-${{ inputs.version }}-mac
+          path: packages/bruno-electron/out/*.dmg
+          if-no-files-found: error
