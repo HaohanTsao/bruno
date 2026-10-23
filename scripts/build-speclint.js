@@ -81,6 +81,8 @@ const buildElectron = ({ platform, version, archArgs }) => {
     cli,
     ...TARGET_ARGS[platform],
     ...archArgs,
+    // On CI electron-builder otherwise tries to publish to GitHub Releases, which needs a token.
+    '--publish', 'never',
     '--config', 'electron-builder-config.js',
     `-c.productName=${PRODUCT_NAME}`,
     `-c.appId=${APP_ID}`,
